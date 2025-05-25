@@ -2,20 +2,31 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Duplicate Article Checker</title>
-    <script src="/static/script.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 50px; }
-        input, button { padding: 10px; margin-top: 10px; width: 100%; max-width: 400px; }
-        #response { margin-top: 20px; font-weight: bold; }
-    </style>
+    <title>Protein Gelation Articles Checker</title>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <h2>Duplicate Article Checker</h2>
-    <input type="text" id="doi" placeholder="DOI (required)">
-    <input type="text" id="title" placeholder="Title (optional)">
+    <h2>🧬 Protein Gelation Research Articles</h2>
+
+    <input type="text" id="doi" placeholder="Enter DOI (required)">
+    <input type="text" id="title" placeholder="Article Title (optional)">
     <input type="text" id="url" placeholder="URL (optional)">
+
+    <label><input type="checkbox" id="hardness"> Gel Hardness</label>
+    <label><input type="checkbox" id="whc"> Water Holding Capacity (WHC)</label>
+
     <button onclick="checkDuplicate()">Check & Save Article</button>
+    <hr>
+
+    <h3>Upload Excel/CSV File (DOI & Title):</h3>
+    <input type="file" id="fileUpload">
+    <button onclick="uploadFile()">Upload File</button>
+
+    <hr>
+    <a href="/export"><button>Download Articles as CSV</button></a>
+
     <div id="response"></div>
+
+    <script src="/static/script.js"></script>
 </body>
 </html>
