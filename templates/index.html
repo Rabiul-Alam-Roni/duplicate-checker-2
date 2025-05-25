@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Duplicate Article Checker</title>
+    <script src="/static/script.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; }
+        input, button { padding: 10px; margin-top: 10px; width: 100%; max-width: 400px; }
+        #response { margin-top: 20px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>Duplicate Article Checker</h2>
+    <input type="text" id="doi" placeholder="DOI (required)">
+    <input type="text" id="title" placeholder="Title (optional)">
+    <input type="text" id="url" placeholder="URL (optional)">
+    <button onclick="checkDuplicate()">Check & Save Article</button>
+    <div id="response"></div>
+</body>
+</html>
