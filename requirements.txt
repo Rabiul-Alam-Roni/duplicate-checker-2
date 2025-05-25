@@ -3,3 +3,8 @@ uvicorn
 sqlalchemy
 python-multipart
 jinja2
+pandas
+openpyxl
+python-docx
+fuzzywuzzy
+python-Levenshtein
