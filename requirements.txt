@@ -7,3 +7,7 @@ pandas
 openpyxl
 fuzzywuzzy
 python-Levenshtein
+passlib[bcrypt]
+python-jose
+email-validator
+fastapi-mail
