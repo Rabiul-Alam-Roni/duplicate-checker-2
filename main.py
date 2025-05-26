@@ -22,6 +22,7 @@ class Article(Base):
     url = Column(String)
     hardness = Column(Boolean, default=False)
     whc = Column(Boolean, default=False)
+    tags = Column(String, default="")
 
 Base.metadata.create_all(engine)
 
@@ -47,13 +48,13 @@ def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/check_article")
-def check_article(doi: str = Form(...), title: str = Form(""), url: str = Form(""), hardness: bool = Form(False), whc: bool = Form(False)):
+def check_article(doi: str = Form(...), title: str = Form(""), url: str = Form(""), hardness: bool = Form(False), whc: bool = Form(False), tags: str = Form("")):
     session = Session()
     if doi_exists(session, doi):
         session.close()
         return JSONResponse({"status": "duplicate", "message": "🔴 Article already downloaded."})
 
-    new_article = Article(doi=doi, title=title, url=url, hardness=hardness, whc=whc)
+    new_article = Article(doi=doi, title=title, url=url, hardness=hardness, whc=whc, tags=tags)
     session.add(new_article)
     session.commit()
     session.close()
@@ -78,7 +79,8 @@ def upload_file(file: UploadFile = File(...)):
         if normalized_doi in existing_dois:
             duplicates += 1
         else:
-            new_article = Article(doi=doi, title=title)
+            tags = row.get('tags', '')
+            new_article = Article(doi=doi, title=title, tags=tags)
             session.add(new_article)
             existing_dois.append(normalized_doi)
             added += 1
@@ -104,7 +106,7 @@ def delete_file(filename: str):
 def export_articles():
     session = Session()
     articles = session.query(Article).all()
-    df = pd.DataFrame([(a.doi, a.title, a.hardness, a.whc) for a in articles], columns=['DOI', 'Title', 'Hardness', 'WHC'])
+    df = pd.DataFrame([(a.doi, a.title, a.hardness, a.whc, a.tags) for a in articles], columns=['DOI', 'Title', 'Hardness', 'WHC', 'Tags'])
     export_path = f"{UPLOAD_DIR}/backup.csv"
     df.to_csv(export_path, index=False)
     session.close()
