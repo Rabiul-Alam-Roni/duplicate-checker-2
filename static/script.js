@@ -1,32 +1,45 @@
-async function register() {
-    await fetch('/register', {method: 'POST', body: new URLSearchParams({
-        email: document.getElementById("reg_email").value,
-        password: document.getElementById("reg_pass").value
-    })});
-    alert("Registered! Please login.");
+async function checkDuplicate() {
+    const doi = document.getElementById("doi").value;
+    const title = document.getElementById("title").value;
+    const tags = document.getElementById("tags").value;
+    const hardness = document.getElementById("hardness").checked;
+    const whc = document.getElementById("whc").checked;
+
+    let formData = new FormData();
+    formData.append("doi", doi);
+    formData.append("title", title);
+    formData.append("tags", tags);
+    formData.append("hardness", hardness);
+    formData.append("whc", whc);
+
+    const res = await fetch('/check_article', {
+        method: 'POST',
+        body: formData
+    });
+
+    const result = await res.json();
+    const responseDiv = document.getElementById("response");
+    responseDiv.innerText = result.message;
+    responseDiv.style.color = (result.status === 'duplicate') ? '#e74c3c' : '#27ae60';
 }
 
-async function login() {
-    let res = await fetch('/login', {method: 'POST', body: new URLSearchParams({
-        email: document.getElementById("login_email").value,
-        password: document.getElementById("login_pass").value
-    })});
-    if(res.ok){ alert("Logged in!"); refreshActiveUsers(); }
-    else{ alert("Login failed!"); }
-}
+async function uploadFile() {
+    const fileInput = document.getElementById("fileUpload");
+    if (!fileInput.files[0]) {
+        alert("Please select a file first!");
+        return;
+    }
 
-async function logout() {
-    await fetch('/logout', {method: 'POST', body: new URLSearchParams({
-        email: document.getElementById("login_email").value
-    })});
-    alert("Logged out!"); refreshActiveUsers();
-}
+    let formData = new FormData();
+    formData.append("file", fileInput.files[0]);
 
-async function refreshActiveUsers(){
-    let res = await fetch('/active_users');
-    let users = await res.json();
-    document.getElementById("activeUsers").innerHTML = 
-        users.map(u => `<li>${u.email} (active: ${u.last_active})</li>`).join('');
-}
+    const res = await fetch('/upload_file', {
+        method: 'POST',
+        body: formData
+    });
 
-window.onload = refreshActiveUsers;
+    const result = await res.json();
+    const fileResponseDiv = document.getElementById("fileResponse");
+    fileResponseDiv.innerText = `Added: ${result.added}, Duplicates: ${result.duplicates}`;
+    fileResponseDiv.style.color = '#2980b9';
+}
