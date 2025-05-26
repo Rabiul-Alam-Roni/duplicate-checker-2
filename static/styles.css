@@ -1,35 +1,33 @@
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(to bottom, #eef2f7, #d1e3f8);
+    background: linear-gradient(135deg, #fbc2eb, #a6c1ee);
+    font-family: Arial, sans-serif;
     padding: 30px;
     color: #333;
 }
-
+.container {
+    max-width: 700px;
+    margin: auto;
+    background-color: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
 h2, h3 {
     color: #0056b3;
 }
-
-input[type="text"], button, input[type="file"] {
-    width: 100%;
+input, button {
+    width: 90%;
     max-width: 500px;
-    margin: 10px 0;
+    margin: 8px;
     padding: 8px;
     border-radius: 5px;
-    border: 1px solid #ccc;
+    border: 1px solid #ddd;
 }
-
 button {
-    background-color: #007bff;
+    background-color: #007BFF;
     color: white;
     cursor: pointer;
 }
-
 button:hover {
     background-color: #0056b3;
-}
-
-#response {
-    margin-top: 20px;
-    font-size: 16px;
-    font-weight: bold;
 }
