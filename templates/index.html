@@ -1,26 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Secure Protein Gelation App</title>
+    <title>Protein Chemistry & AI Article Checker</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
+            text-align: center;
+            color: #333;
+            padding: 30px;
+        }
+        .container {
+            max-width: 650px;
+            background-color: white;
+            margin: auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            width: 90%;
+            max-width: 500px;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .response {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        img {
+            width: 60px;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
-<h2>🔒 Secure Protein Gelation App</h2>
-
-<h3>Register</h3>
-<input type="email" id="reg_email" placeholder="Email">
-<input type="password" id="reg_pass" placeholder="Password">
-<button onclick="register()">Register</button>
-
-<h3>Login</h3>
-<input type="email" id="login_email" placeholder="Email">
-<input type="password" id="login_pass" placeholder="Password">
-<button onclick="login()">Login</button>
-<button onclick="logout()">Logout</button>
-
-<h3>Active Users:</h3>
-<ul id="activeUsers"></ul>
-
-<script src="/static/script.js"></script>
+    <div class="container">
+        <h2>🧬 Protein Chemistry & AI Article Checker 🧠</h2>
+        <img src="https://img.icons8.com/clouds/100/protein.png" alt="Protein"/>
+        <input type="text" id="doi" placeholder="Enter DOI">
+        <input type="text" id="title" placeholder="Article Title (optional)">
+        <input type="text" id="tags" placeholder="Tags (optional)">
+        <br>
+        <label><input type="checkbox" id="hardness"> Gel Hardness</label>
+        <label><input type="checkbox" id="whc"> WHC</label>
+        <br>
+        <button onclick="checkDuplicate()">Check DOI</button>
+        <div class="response" id="response"></div>
+        <hr>
+        <h3>Upload CSV (for multiple DOIs)</h3>
+        <input type="file" id="fileUpload">
+        <button onclick="uploadFile()">Upload CSV</button>
+        <div class="response" id="fileResponse"></div>
+        <hr>
+        <button onclick="location.href='/export'">Download All Articles (CSV)</button>
+    </div>
+    <script src="/static/script.js"></script>
 </body>
 </html>
