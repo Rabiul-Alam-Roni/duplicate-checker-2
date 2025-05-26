@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, File, UploadFile
+from fastapi import FastAPI, Request, Form, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -7,11 +7,9 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 import pandas as pd
 import shutil, os
 from fuzzywuzzy import fuzz
-from docx import Document
 
 app = FastAPI()
 
-# Database setup
 engine = create_engine("sqlite:///./database.db", connect_args={"check_same_thread": False})
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
@@ -27,65 +25,88 @@ class Article(Base):
 
 Base.metadata.create_all(engine)
 
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-def similar_doi(existing_doi, new_doi):
-    return fuzz.partial_ratio(existing_doi.lower(), new_doi.lower()) > 90
+def normalize_doi(doi):
+    doi = doi.lower().replace("https://doi.org/", "").replace("http://doi.org/", "").strip()
+    return doi
+
+def doi_exists(session, doi):
+    normalized_new_doi = normalize_doi(doi)
+    articles = session.query(Article).all()
+    for article in articles:
+        if fuzz.ratio(normalize_doi(article.doi), normalized_new_doi) > 90:
+            return True
+    return False
 
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
+def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/check_article")
-async def check_article(doi: str = Form(...), title: str = Form(""), url: str = Form(""),
-                        hardness: bool = Form(False), whc: bool = Form(False)):
+def check_article(doi: str = Form(...), title: str = Form(""), url: str = Form(""), hardness: bool = Form(False), whc: bool = Form(False)):
     session = Session()
-    existing_articles = session.query(Article).all()
-    for article in existing_articles:
-        if similar_doi(article.doi, doi):
-            session.close()
-            return JSONResponse({"status": "duplicate", "message": "Duplicate DOI detected."})
+    if doi_exists(session, doi):
+        session.close()
+        return JSONResponse({"status": "duplicate", "message": "Article already downloaded."})
 
     new_article = Article(doi=doi, title=title, url=url, hardness=hardness, whc=whc)
     session.add(new_article)
     session.commit()
     session.close()
-    return JSONResponse({"status": "new", "message": "Article saved successfully."})
+    return JSONResponse({"status": "new", "message": "Article successfully saved."})
 
 @app.post("/upload_file")
-async def upload_file(file: UploadFile = File(...)):
-    upload_dir = "uploads"
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
-    file_location = f"{upload_dir}/{file.filename}"
-    with open(file_location, "wb") as buffer:
+def upload_file(file: UploadFile = File(...)):
+    filepath = f"{UPLOAD_DIR}/{file.filename}"
+    with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    df = pd.read_csv(filepath) if filepath.endswith('.csv') else pd.read_excel(filepath)
     session = Session()
-    df = pd.read_excel(file_location) if file.filename.endswith('.xlsx') else pd.read_csv(file_location)
-
     added, duplicates = 0, 0
+
+    existing_dois = [normalize_doi(article.doi) for article in session.query(Article).all()]
+
     for _, row in df.iterrows():
         doi, title = row.get('doi', ''), row.get('title', '')
-        exists = any(similar_doi(article.doi, doi) for article in session.query(Article).all())
-        if not exists:
-            session.add(Article(doi=doi, title=title))
-            added += 1
-        else:
+        normalized_doi = normalize_doi(doi)
+
+        if normalized_doi in existing_dois:
             duplicates += 1
+        else:
+            new_article = Article(doi=doi, title=title)
+            session.add(new_article)
+            existing_dois.append(normalized_doi)
+            added += 1
+
     session.commit()
     session.close()
-    os.remove(file_location)
+
     return {"added": added, "duplicates": duplicates}
 
+@app.get("/uploaded_files")
+def uploaded_files():
+    return os.listdir(UPLOAD_DIR)
+
+@app.delete("/delete_file/{filename}")
+def delete_file(filename: str):
+    filepath = f"{UPLOAD_DIR}/{filename}"
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        return {"status": "deleted"}
+    raise HTTPException(status_code=404, detail="File not found")
+
 @app.get("/export")
-def export_data():
+def export_articles():
     session = Session()
     articles = session.query(Article).all()
-    data = [(a.doi, a.title, a.hardness, a.whc) for a in articles]
-    df = pd.DataFrame(data, columns=['DOI', 'Title', 'Hardness', 'WHC'])
-    export_path = "uploads/export.csv"
+    df = pd.DataFrame([(a.doi, a.title, a.hardness, a.whc) for a in articles], columns=['DOI', 'Title', 'Hardness', 'WHC'])
+    export_path = f"{UPLOAD_DIR}/backup.csv"
     df.to_csv(export_path, index=False)
     session.close()
-    return FileResponse(export_path, media_type='text/csv', filename='export.csv')
+    return FileResponse(export_path, media_type='text/csv', filename='backup.csv')
