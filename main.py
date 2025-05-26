@@ -32,8 +32,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 def normalize_doi(doi):
-    doi = doi.lower().replace("https://doi.org/", "").replace("http://doi.org/", "").strip()
-    return doi
+    return doi.lower().replace("https://doi.org/", "").replace("http://doi.org/", "").strip()
 
 def doi_exists(session, doi):
     normalized_new_doi = normalize_doi(doi)
@@ -52,13 +51,13 @@ def check_article(doi: str = Form(...), title: str = Form(""), url: str = Form("
     session = Session()
     if doi_exists(session, doi):
         session.close()
-        return JSONResponse({"status": "duplicate", "message": "Article already downloaded."})
+        return JSONResponse({"status": "duplicate", "message": "🔴 Article already downloaded."})
 
     new_article = Article(doi=doi, title=title, url=url, hardness=hardness, whc=whc)
     session.add(new_article)
     session.commit()
     session.close()
-    return JSONResponse({"status": "new", "message": "Article successfully saved."})
+    return JSONResponse({"status": "new", "message": "🟢 Article successfully saved."})
 
 @app.post("/upload_file")
 def upload_file(file: UploadFile = File(...)):
