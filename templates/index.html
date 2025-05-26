@@ -1,51 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Protein Gelation DOI Checker</title>
+    <title>Secure Protein Gelation App</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <h2>🧬 Protein Gelation Research Articles Manager</h2>
+<h2>🔒 Secure Protein Gelation App</h2>
 
-    <input type="text" id="doi" placeholder="DOI">
-    <input type="text" id="title" placeholder="Title (optional)">
-    <input type="text" id="url" placeholder="URL (optional)">
+<h3>Register</h3>
+<input type="email" id="reg_email" placeholder="Email">
+<input type="password" id="reg_pass" placeholder="Password">
+<button onclick="register()">Register</button>
 
-    <label><input type="checkbox" id="hardness"> Gel Hardness</label>
-    <label><input type="checkbox" id="whc"> WHC</label>
+<h3>Login</h3>
+<input type="email" id="login_email" placeholder="Email">
+<input type="password" id="login_pass" placeholder="Password">
+<button onclick="login()">Login</button>
+<button onclick="logout()">Logout</button>
 
-    <button onclick="checkDuplicate()">Check & Save</button>
-
-    <hr>
-    <h3>Batch Upload (CSV)</h3>
-    <input type="file" id="fileUpload">
-    <button onclick="uploadFile()">Upload CSV</button>
-
-    <h3>Uploaded Files:</h3>
-    <ul id="fileList"></ul>
-
-    <hr>
-    <a href="/export"><button>Download Backup CSV</button></a>
-
-    <div id="response"></div>
+<h3>Active Users:</h3>
+<ul id="activeUsers"></ul>
 
 <script src="/static/script.js"></script>
-<script>
-async function refreshFileList() {
-    let response = await fetch('/uploaded_files');
-    let files = await response.json();
-    document.getElementById('fileList').innerHTML = files.map(f => 
-        `<li>${f} <button onclick="deleteFile('${f}')">Delete</button></li>`
-    ).join('');
-}
-
-async function deleteFile(filename) {
-    await fetch('/delete_file/' + filename, {method: 'DELETE'});
-    refreshFileList();
-}
-
-window.onload = refreshFileList;
-</script>
 </body>
 </html>
