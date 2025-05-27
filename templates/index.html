@@ -7,43 +7,70 @@
         body {
             font-family: Arial, sans-serif;
             background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
-            text-align: center;
             color: #333;
+            text-align: center;
             padding: 20px;
         }
         .container {
-            background-color: white;
+            max-width: 650px;
+            background: white;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             padding: 20px;
-            max-width: 600px;
             margin: auto;
         }
-        button { background-color: #007BFF; color: white; border-radius:5px; padding:8px; }
-        button:hover { background-color: #0056b3; }
+        input, button {
+            width: 90%;
+            max-width: 500px;
+            padding: 10px;
+            margin: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .response {
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        .checkbox-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 10px;
+        }
     </style>
 </head>
 <body>
-<div class="container">
-    <h2>📑 Duplicate Checker for AI Bobby Team 🔍</h2>
-    <img src="https://img.icons8.com/clouds/100/find-and-replace.png" alt="Duplicate Checker"/>
-    <br>
-    <input id="doi" placeholder="Enter DOI">
-    <input id="title" placeholder="Title (optional)">
-    <input id="tags" placeholder="Tags (optional)">
-    <br>
-    <label><input type="checkbox" id="hardness"> Gel Hardness</label>
-    <label><input type="checkbox" id="whc"> WHC</label>
-    <br>
-    <button onclick="checkDuplicate()">Check DOI</button>
-    <div id="response"></div>
-    <hr>
-    <input type="file" id="fileUpload">
-    <button onclick="uploadFile()">Upload CSV</button>
-    <div id="fileResponse"></div>
-    <hr>
-    <button onclick="location.href='/export'">Download CSV</button>
-</div>
-<script src="/static/script.js"></script>
+    <div class="container">
+        <h2>📑 AI Bobby Team</h2>
+        <img src="https://img.icons8.com/clouds/100/protein.png" alt="Protein"/>
+        <br>
+        <input type="text" id="doi" placeholder="Enter DOI here">
+        <input type="text" id="title" placeholder="Article Title (optional)">
+        <input type="text" id="tags" placeholder="Tags (optional)">
+        
+        <div class="checkbox-group">
+            <label><input type="checkbox" id="hardness"> Gel Hardness</label>
+            <label><input type="checkbox" id="whc"> Water Holding Capacity (WHC)</label>
+        </div>
+
+        <button onclick="checkDuplicate()">Check and Save DOI</button>
+        <div class="response" id="response"></div>
+        <hr>
+        <h3>Batch DOI Upload</h3>
+        <input type="file" id="fileUpload">
+        <button onclick="uploadFile()">Upload CSV</button>
+        <div class="response" id="fileResponse"></div>
+        <hr>
+        <button onclick="location.href='/export'">Download All Articles (CSV)</button>
+    </div>
+    <script src="/static/script.js"></script>
 </body>
 </html>
