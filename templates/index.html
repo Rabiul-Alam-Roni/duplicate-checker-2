@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Protein Chemistry & AI Article Checker</title>
+    <title>Duplicate Checker for AI Bobby Team</title>
     <link rel="stylesheet" href="/static/styles.css">
     <style>
         body {
@@ -9,63 +9,41 @@
             background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
             text-align: center;
             color: #333;
-            padding: 30px;
+            padding: 20px;
         }
         .container {
-            max-width: 650px;
             background-color: white;
-            margin: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            max-width: 600px;
+            margin: auto;
         }
-        input, button {
-            padding: 10px;
-            margin: 5px;
-            border-radius: 6px;
-            border: 1px solid #ddd;
-            width: 90%;
-            max-width: 500px;
-        }
-        button {
-            background-color: #007BFF;
-            color: white;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .response {
-            font-weight: bold;
-            margin-top: 10px;
-        }
-        img {
-            width: 60px;
-            margin-top: 10px;
-        }
+        button { background-color: #007BFF; color: white; border-radius:5px; padding:8px; }
+        button:hover { background-color: #0056b3; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>🧬 Protein Chemistry & AI Article Checker 🧠</h2>
-        <img src="https://img.icons8.com/clouds/100/protein.png" alt="Protein"/>
-        <input type="text" id="doi" placeholder="Enter DOI">
-        <input type="text" id="title" placeholder="Article Title (optional)">
-        <input type="text" id="tags" placeholder="Tags (optional)">
-        <br>
-        <label><input type="checkbox" id="hardness"> Gel Hardness</label>
-        <label><input type="checkbox" id="whc"> WHC</label>
-        <br>
-        <button onclick="checkDuplicate()">Check DOI</button>
-        <div class="response" id="response"></div>
-        <hr>
-        <h3>Upload CSV (for multiple DOIs)</h3>
-        <input type="file" id="fileUpload">
-        <button onclick="uploadFile()">Upload CSV</button>
-        <div class="response" id="fileResponse"></div>
-        <hr>
-        <button onclick="location.href='/export'">Download All Articles (CSV)</button>
-    </div>
-    <script src="/static/script.js"></script>
+<div class="container">
+    <h2>📑 Duplicate Checker for AI Bobby Team 🔍</h2>
+    <img src="https://img.icons8.com/clouds/100/find-and-replace.png" alt="Duplicate Checker"/>
+    <br>
+    <input id="doi" placeholder="Enter DOI">
+    <input id="title" placeholder="Title (optional)">
+    <input id="tags" placeholder="Tags (optional)">
+    <br>
+    <label><input type="checkbox" id="hardness"> Gel Hardness</label>
+    <label><input type="checkbox" id="whc"> WHC</label>
+    <br>
+    <button onclick="checkDuplicate()">Check DOI</button>
+    <div id="response"></div>
+    <hr>
+    <input type="file" id="fileUpload">
+    <button onclick="uploadFile()">Upload CSV</button>
+    <div id="fileResponse"></div>
+    <hr>
+    <button onclick="location.href='/export'">Download CSV</button>
+</div>
+<script src="/static/script.js"></script>
 </body>
 </html>
