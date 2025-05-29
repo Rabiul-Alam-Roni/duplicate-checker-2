@@ -17,6 +17,7 @@
             --success-green: #10B981;
             --warning-orange: #F59E0B;
             --error-red: #EF4444;
+            --downloaded-red: #DC2626;
         }
 
         * {
@@ -49,7 +50,7 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             width: 100%;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
@@ -72,24 +73,27 @@
         }
 
         .header {
-            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             margin-bottom: 40px;
             position: relative;
         }
 
-        .header::before {
-            content: '🧬';
-            position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
+        .title-section {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .protein-icon {
             font-size: 3rem;
             animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { transform: translateX(-50%) scale(1); }
-            50% { transform: translateX(-50%) scale(1.1); }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
         }
 
         .main-title {
@@ -99,7 +103,6 @@
             background-clip: text;
             font-size: 2.5rem;
             font-weight: 700;
-            margin-bottom: 10px;
             line-height: 1.2;
         }
 
@@ -107,6 +110,27 @@
             color: #6B7280;
             font-size: 1.1rem;
             font-weight: 500;
+            margin-top: 5px;
+        }
+
+        .ai-bobby-logo {
+            width: 100px;
+            height: 120px;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEwMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9InNreUdyYWRpZW50IiB4MT0iMCUiIHkxPSIwJSIgeDI9IjEwMCUiIHkyPSIxMDAlIj4KPHN0b3Agb2Zmc2V0PSIwJSIgc3R5bGU9InN0b3AtY29sb3I6IzY3RDlGOCIgLz4KPHN0b3Agb2Zmc2V0PSI1MCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM0REIzRjYiIC8+CjxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzJEOThENSIgLz4KPC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJncmFzcyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPgo8c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojNDhDQzZDIiAvPgo8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMyNDhBM0QiIC8+CjwvbGluZWFyR3JhZGllbnQ+CjxsaW5lYXJHcmFkaWVudCBpZD0iaGlsbHMiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgo8c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojRjNGNEY2IiAvPgo8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiNFNUU3RUIiIC8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KCjwhLS0gQmFja2dyb3VuZCBhcmNoIC0tPgo8cGF0aCBkPSJNIDEwIDEwIEMgMTAgNSA0NSAwIDkwIDEwIEMgOTUgMTUgOTUgODUgOTAgOTAgQyA0NSAxMDAgMTAgOTUgMTAgMTAiIGZpbGw9InVybCgjc2t5R3JhZGllbnQpIiBzdHJva2U9IiMyRDk4RDUiIHN0cm9rZS13aWR0aD0iMiIvPgoKPCEtLSBCYWNrZ3JvdW5kIGhpbGxzIC0tPgo8ZWxsaXBzZSBjeD0iMjAiIGN5PSI3NSIgcng9IjE1IiByeT0iMTAiIGZpbGw9InVybCgjaGlsbHMpIiBvcGFjaXR5PSIwLjgiLz4KPGVsbGlwc2UgY3g9IjcwIiBjeT0iODAiIHJ4PSIyMCIgcnk9IjEyIiBmaWxsPSJ1cmwoI2hpbGxzKSIgb3BhY2l0eT0iMC42Ii8+Cgo8IS0tIEdyYXNzIGFuZCB2ZWdldGF0aW9uIC0tPgo8cGF0aCBkPSJNIDEwIDkwIEMgMjAgODUgMzAgOTAgNDAgODUgQyA1MCA5MCA2MCA4NSA3MCA5MCBDIDY1IDg1IDU1IDkwIDQ1IDg1IEMgMzUgOTAgMjUgODUgMTAgOTAiIGZpbGw9InVybCgjZ3Jhc3MpIi8+Cgo8IS0tIEFuaW1hbCBzaWxob3VldHRlIChzdGlsaXplZCBnb2F0KSAtLT4KPHBhdGggZD0iTSAzNSA2NSBDIDMwIDYwIDMwIDU1IDM1IDUwIEMgNDAgNDUgNTAgNDUgNTUgNTAgQyA2MCA1NSA2NSA2MCA3MCA2NSBDIDcwIDcwIDY1IDc1IDYwIDc1IEMgNTUgNzUgNTAgNzUgNDUgNzUgQyA0MCA3NSAzNSA3MCAzNSA2NSIgZmlsbD0iIzJENzI0QiIvPgoKPCEtLSBBbmltYWwgaGVhZCAtLT4KPGNpcmNsZSBjeD0iNzAiIGN5PSI2MCIgcj0iOCIgZmlsbD0iIzJENzI0QiIvPgo8IS0tIEhvcm5zIC0tPgo8cGF0aCBkPSJNIDY3IDUyIEMgNjcgNDggNjggNDUgNzAgNDUgQyA3MiA0NSA3MyA0OCA3MyA1MiIgc3Ryb2tlPSIjMkQ3MjRCIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz4KCjwhLS0gVGV4dCAtLT4KPHR2eHQgeD0iNTAiIHk9IjExMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzJENzI0QiI+QUkgQk9CQlk8L3RleHQ+Cjwvc3ZnPg==') center/cover no-repeat;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            animation: gentleFloat 6s ease-in-out infinite;
+            transition: transform 0.3s ease;
+        }
+
+        .ai-bobby-logo:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        @keyframes gentleFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
         }
 
         .form-section {
@@ -240,6 +264,10 @@
             text-align: center;
             border-left: 4px solid;
             animation: fadeIn 0.5s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         @keyframes fadeIn {
@@ -263,6 +291,12 @@
             background: rgba(0, 212, 255, 0.1);
             color: var(--ai-cyan);
             border-color: var(--ai-cyan);
+        }
+
+        .response.downloaded {
+            background: rgba(220, 38, 38, 0.1);
+            color: var(--downloaded-red);
+            border-color: var(--downloaded-red);
         }
 
         .divider {
@@ -345,10 +379,38 @@
             transition: width 0.3s ease;
         }
 
+        .file-preview {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 8px;
+            border-left: 4px solid var(--ai-cyan);
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            color: var(--ai-cyan);
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
                 margin: 10px;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+            
+            .title-section {
+                flex-direction: column;
+                gap: 10px;
             }
             
             .main-title {
@@ -358,13 +420,26 @@
             .checkbox-container {
                 grid-template-columns: 1fr;
             }
+
+            .ai-bobby-logo {
+                width: 80px;
+                height: 100px;
+                font-size: 0.9rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1 class="main-title">Duplicate Checker for AI Bobby Team</h1>
+            <div class="title-section">
+                <div class="protein-icon">🧬</div>
+                <div>
+                    <h1 class="main-title">Duplicate Checker</h1>
+                    <p class="subtitle">Advanced Research Management System</p>
+                </div>
+            </div>
+            <div class="ai-bobby-logo" title="AI Bobby Team - Advanced Research Management"></div>
         </div>
 
         <div class="form-section">
@@ -374,7 +449,7 @@
             
             <div class="input-group">
                 <i class="fas fa-link"></i>
-                <input type="text" id="doi" placeholder="Enter DOI">
+                <input type="text" id="doi" placeholder="Enter DOI (e.g., 10.1016/j.example.2024.01.001)">
             </div>
             
             <div class="input-group">
@@ -383,8 +458,8 @@
             </div>
             
             <div class="input-group">
-                <i class="fas fa-tags"></i>
-                <input type="text" id="tags" placeholder="Research Tags (Optional)">
+                <i class="fas fa-atom"></i>
+                <input type="text" id="protein" placeholder="Protein Name (Optional)">
             </div>
             
             <div class="checkbox-container">
@@ -426,12 +501,20 @@
             
             <div class="input-group">
                 <i class="fas fa-file-csv"></i>
-                <input type="file" id="fileUpload" accept=".csv" style="padding-left: 50px;">
+                <input type="file" id="fileUpload" accept=".csv,.xlsx,.xls" style="padding-left: 50px;" onchange="previewFile()">
+            </div>
+            
+            <div class="file-preview" id="filePreview">
+                <div class="file-info">
+                    <i class="fas fa-file-check"></i>
+                    <span id="fileName"></span>
+                    <span id="fileSize"></span>
+                </div>
             </div>
             
             <button class="btn btn-secondary" onclick="uploadFile()">
                 <i class="fas fa-cloud-upload-alt"></i>
-                Process CSV File
+                Process File (CSV/Excel)
             </button>
             
             <div class="progress-bar" id="progressBar">
@@ -448,7 +531,7 @@
                 <i class="fas fa-download"></i> Export & Analytics
             </h3>
             
-            <button class="btn btn-success" onclick="location.href='/export'">
+            <button class="btn btn-success" onclick="exportDatabase()">
                 <i class="fas fa-file-download"></i>
                 Download Complete Database (CSV)
             </button>
@@ -472,9 +555,291 @@
                 <div class="stat-number" id="uniqueArticles">0</div>
                 <div class="stat-label">Unique Entries</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-number" id="withHardness">0</div>
+                <div class="stat-label">With Gel Hardness</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="withWHC">0</div>
+                <div class="stat-label">With WHC Data</div>
+            </div>
         </div>
     </div>
 
-    <script src="/static/script.js"></script>
-</body>
-</html>
+    <script>
+        // Global variables to store uploaded DOIs
+        let uploadedDOIs = new Set();
+        let databaseStats = {
+            total: 0,
+            duplicates: 0,
+            unique: 0,
+            withHardness: 0,
+            withWHC: 0
+        };
+
+        // File preview function
+        function previewFile() {
+            const fileInput = document.getElementById('fileUpload');
+            const filePreview = document.getElementById('filePreview');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+            
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                fileName.textContent = file.name;
+                fileSize.textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
+                filePreview.style.display = 'block';
+            } else {
+                filePreview.style.display = 'none';
+            }
+        }
+
+        // Enhanced duplicate checking function
+        async function checkDuplicate() {
+            const doi = document.getElementById('doi').value.trim();
+            const title = document.getElementById('title').value.trim();
+            const protein = document.getElementById('protein').value.trim();
+            const hardness = document.getElementById('hardness').checked;
+            const whc = document.getElementById('whc').checked;
+            const loading = document.getElementById('loading');
+            const response = document.getElementById('response');
+
+            if (!doi) {
+                showResponse(response, 'error', '<i class="fas fa-exclamation-triangle"></i> Please enter a DOI');
+                return;
+            }
+
+            // Check if DOI is in uploaded CSV
+            if (uploadedDOIs.has(doi.toLowerCase())) {
+                showResponse(response, 'downloaded', '<i class="fas fa-download"></i> This article has already been downloaded from your uploaded file');
+                return;
+            }
+
+            loading.style.display = 'block';
+            response.innerHTML = '';
+
+            try {
+                const requestData = {
+                    doi: doi,
+                    title: title,
+                    protein: protein,
+                    gel_hardness: hardness,
+                    water_holding_capacity: whc
+                };
+
+                const result = await fetch('/check_duplicate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const data = await result.json();
+                
+                if (result.ok) {
+                    if (data.is_duplicate) {
+                        showResponse(response, 'downloaded', `<i class="fas fa-exclamation-circle"></i> Duplicate Found: This article already exists in the database`);
+                    } else {
+                        showResponse(response, 'success', `<i class="fas fa-check-circle"></i> Article successfully saved to database`);
+                        updateDatabaseStats();
+                    }
+                } else {
+                    showResponse(response, 'error', `<i class="fas fa-times-circle"></i> Error: ${data.error || 'Unknown error occurred'}`);
+                }
+            } catch (error) {
+                showResponse(response, 'error', `<i class="fas fa-exclamation-triangle"></i> Network Error: ${error.message}`);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // Enhanced file upload function
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileUpload');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            const fileResponse = document.getElementById('fileResponse');
+
+            if (fileInput.files.length === 0) {
+                showResponse(fileResponse, 'error', '<i class="fas fa-exclamation-triangle"></i> Please select a CSV or Excel file');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const allowedTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+            
+            if (!allowedTypes.includes(file.type) && !file.name.match(/\.(csv|xlsx|xls)$/i)) {
+                showResponse(fileResponse, 'error', '<i class="fas fa-times-circle"></i> Please upload only CSV or Excel files');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+            fileResponse.innerHTML = '';
+
+            try {
+                // Simulate progress
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += Math.random() * 30;
+                    if (progress > 90) progress = 90;
+                    progressFill.style.width = progress + '%';
+                }, 200);
+
+                const result = await fetch('/upload_csv', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+
+                const data = await result.json();
+                
+                if (result.ok) {
+                    // Store uploaded DOIs for duplicate checking
+                    if (data.uploaded_dois) {
+                        uploadedDOIs = new Set(data.uploaded_dois.map(doi => doi.toLowerCase()));
+                    }
+                    
+                    showResponse(fileResponse, 'success', 
+                        `<i class="fas fa-check-circle"></i> Successfully processed ${data.processed_count || 0} articles from ${file.name}`);
+                    updateDatabaseStats();
+                } else {
+                    showResponse(fileResponse, 'error', 
+                        `<i class="fas fa-times-circle"></i> Upload Error: ${data.error || 'File processing failed'}`);
+                }
+            } catch (error) {
+                showResponse(fileResponse, 'error', 
+                    `<i class="fas fa-exclamation-triangle"></i> Upload Error: Network connection failed - ${error.message}`);
+            } finally {
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                    progressFill.style.width = '0%';
+                }, 1000);
+            }
+        }
+
+        // Enhanced export function
+        async function exportDatabase() {
+            try {
+                showResponse(document.getElementById('fileResponse'), 'info', 
+                    '<i class="fas fa-spinner fa-spin"></i> Preparing database export...');
+                
+                const response = await fetch('/export', {
+                    method: 'GET',
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `research_database_${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    showResponse(document.getElementById('fileResponse'), 'success', 
+                        '<i class="fas fa-download"></i> Database successfully exported');
+                } else {
+                    const errorData = await response.json();
+                    showResponse(document.getElementById('fileResponse'), 'error', 
+                        `<i class="fas fa-times-circle"></i> Export failed: ${errorData.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                showResponse(document.getElementById('fileResponse'), 'error', 
+                    `<i class="fas fa-exclamation-triangle"></i> Export Error: ${error.message}`);
+            }
+        }
+
+        // Enhanced statistics function
+        async function showStats() {
+            const statsGrid = document.getElementById('statsGrid');
+            
+            try {
+                const response = await fetch('/get_stats', {
+                    method: 'GET',
+                });
+
+                if (response.ok) {
+                    const stats = await response.json();
+                    
+                    document.getElementById('totalArticles').textContent = stats.total_articles || 0;
+                    document.getElementById('duplicatesFound').textContent = stats.duplicates_found || 0;
+                    document.getElementById('uniqueArticles').textContent = stats.unique_articles || 0;
+                    document.getElementById('withHardness').textContent = stats.with_hardness || 0;
+                    document.getElementById('withWHC').textContent = stats.with_whc || 0;
+                    
+                    statsGrid.style.display = 'grid';
+                } else {
+                    // Fallback to stored stats if API fails
+                    document.getElementById('totalArticles').textContent = databaseStats.total;
+                    document.getElementById('duplicatesFound').textContent = databaseStats.duplicates;
+                    document.getElementById('uniqueArticles').textContent = databaseStats.unique;
+                    document.getElementById('withHardness').textContent = databaseStats.withHardness;
+                    document.getElementById('withWHC').textContent = databaseStats.withWHC;
+                    
+                    statsGrid.style.display = 'grid';
+                }
+            } catch (error) {
+                console.error('Stats error:', error);
+                // Show fallback stats
+                statsGrid.style.display = 'grid';
+            }
+        }
+
+        // Update database statistics
+        function updateDatabaseStats() {
+            databaseStats.total++;
+            databaseStats.unique++;
+        }
+
+        // Helper function to show responses
+        function showResponse(element, type, message) {
+            element.innerHTML = message;
+            element.className = `response ${type}`;
+            element.style.display = 'flex';
+        }
+
+        // Clear form after successful submission
+        function clearForm() {
+            document.getElementById('doi').value = '';
+            document.getElementById('title').value = '';
+            document.getElementById('protein').value = '';
+            document.getElementById('hardness').checked = false;
+            document.getElementById('whc').checked = false;
+        }
+
+        // Auto-hide responses after 5 seconds
+        function autoHideResponse(element) {
+            setTimeout(() => {
+                if (element.style.display !== 'none') {
+                    element.style.opacity = '0';
+                    setTimeout(() => {
+                        element.style.display = 'none';
+                        element.style.opacity = '1';
+                    }, 300);
+                }
+            }, 5000);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load initial statistics
+            showStats();
+            
+            // Add event listeners for better UX
+            document.getElementById('doi').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    checkDuplicate();
+                }
+            });
+        });
+    </script>
