@@ -17,6 +17,7 @@ from fuzzywuzzy import fuzz
 import aiofiles
 import logging
 from pathlib import Path
+import sqlite3
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -37,13 +38,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Enhanced Database setup with connection pooling
-DATABASE_URL = "sqlite:///./advanced_database.db"
+# Enhanced Database setup with better error handling
+DATABASE_URL = "sqlite:///./research_articles.db"
 engine = create_engine(
     DATABASE_URL, 
     connect_args={"check_same_thread": False},
     pool_pre_ping=True,
-    pool_recycle=300
+    pool_recycle=300,
+    echo=False
 )
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
@@ -51,21 +53,15 @@ Base = declarative_base()
 class Article(Base):
     __tablename__ = "articles"
     id = Column(Integer, primary_key=True, index=True)
-    doi = Column(String, unique=True, index=True)
+    doi = Column(String, index=True)
     title = Column(String, index=True)
-    url = Column(String)
+    protein_name = Column(String, nullable=True)
     hardness = Column(Boolean, default=False)
     whc = Column(Boolean, default=False)
-    tags = Column(Text, default="")
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    file_hash = Column(String, unique=True, nullable=True)
-    author = Column(String, nullable=True)
-    publication_year = Column(Integer, nullable=True)
-    journal = Column(String, nullable=True)
-    abstract = Column(Text, nullable=True)
-    protein_type = Column(String, nullable=True)
-    gelatin_source = Column(String, nullable=True)
+    file_hash = Column(String, nullable=True)
+    source_file = Column(String, nullable=True)  # Track which file it came from
 
 class UploadHistory(Base):
     __tablename__ = "upload_history"
@@ -75,18 +71,25 @@ class UploadHistory(Base):
     articles_added = Column(Integer, default=0)
     duplicates_found = Column(Integer, default=0)
     file_size = Column(Integer, default=0)
+    total_rows = Column(Integer, default=0)
 
-Base.metadata.create_all(engine)
+# Create tables
+try:
+    Base.metadata.create_all(engine)
+    logger.info("Database tables created successfully")
+except Exception as e:
+    logger.error(f"Database setup error: {e}")
 
 # Enhanced directory structure
 UPLOAD_DIR = Path("uploads")
 EXPORT_DIR = Path("exports")
-BACKUP_DIR = Path("backups")
-LOGS_DIR = Path("logs")
+STATIC_DIR = Path("static")
+TEMPLATES_DIR = Path("templates")
 
-for directory in [UPLOAD_DIR, EXPORT_DIR, BACKUP_DIR, LOGS_DIR]:
+for directory in [UPLOAD_DIR, EXPORT_DIR, STATIC_DIR, TEMPLATES_DIR]:
     directory.mkdir(exist_ok=True)
 
+# Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -96,11 +99,11 @@ def generate_file_hash(file_content: bytes) -> str:
 
 def normalize_doi(doi: str) -> str:
     """Enhanced DOI normalization with better cleaning"""
-    if not doi:
+    if not doi or pd.isna(doi):
         return ""
     
-    # Remove common prefixes and clean
-    cleaned = doi.lower().strip()
+    # Convert to string and clean
+    cleaned = str(doi).lower().strip()
     prefixes = ["https://doi.org/", "http://doi.org/", "doi:", "doi "]
     
     for prefix in prefixes:
@@ -117,6 +120,10 @@ def advanced_doi_similarity(doi1: str, doi2: str) -> float:
     if not normalized1 or not normalized2:
         return 0.0
     
+    # Exact match first
+    if normalized1 == normalized2:
+        return 100.0
+    
     # Multiple similarity checks
     ratio_score = fuzz.ratio(normalized1, normalized2)
     token_sort_score = fuzz.token_sort_ratio(normalized1, normalized2)
@@ -126,20 +133,24 @@ def advanced_doi_similarity(doi1: str, doi2: str) -> float:
     final_score = (ratio_score * 0.5 + token_sort_score * 0.3 + token_set_score * 0.2)
     return final_score
 
-def doi_exists(session, doi: str, similarity_threshold: float = 85.0) -> tuple[bool, Optional[Article]]:
+def doi_exists_in_db(session, doi: str, similarity_threshold: float = 85.0) -> tuple[bool, Optional[Article]]:
     """Enhanced duplicate detection with configurable threshold"""
     normalized_doi = normalize_doi(doi)
     if not normalized_doi:
         return False, None
     
-    articles = session.query(Article).all()
-    
-    for article in articles:
-        similarity = advanced_doi_similarity(article.doi, doi)
-        if similarity > similarity_threshold:
-            return True, article
-    
-    return False, None
+    try:
+        articles = session.query(Article).all()
+        
+        for article in articles:
+            similarity = advanced_doi_similarity(article.doi, doi)
+            if similarity > similarity_threshold:
+                return True, article
+        
+        return False, None
+    except Exception as e:
+        logger.error(f"Error checking DOI existence: {e}")
+        return False, None
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -153,13 +164,22 @@ async def home(request: Request):
             "total_articles": total_articles,
             "hardness_articles": session.query(Article).filter(Article.hardness == True).count(),
             "whc_articles": session.query(Article).filter(Article.whc == True).count(),
-            "recent_uploads": len(recent_uploads)
+            "recent_uploads": len(recent_uploads),
+            "unique_dois": session.query(Article.doi).distinct().count()
         }
         
         return templates.TemplateResponse("index.html", {
             "request": request, 
             "stats": stats,
             "recent_uploads": recent_uploads
+        })
+    except Exception as e:
+        logger.error(f"Home page error: {e}")
+        stats = {"total_articles": 0, "hardness_articles": 0, "whc_articles": 0, "recent_uploads": 0, "unique_dois": 0}
+        return templates.TemplateResponse("index.html", {
+            "request": request, 
+            "stats": stats,
+            "recent_uploads": []
         })
     finally:
         session.close()
@@ -168,27 +188,27 @@ async def home(request: Request):
 async def check_article(
     doi: str = Form(...),
     title: str = Form(""),
-    url: str = Form(""),
+    protein_name: str = Form(""),
     hardness: bool = Form(False),
-    whc: bool = Form(False),
-    tags: str = Form(""),
-    author: str = Form(""),
-    journal: str = Form(""),
-    publication_year: Optional[int] = Form(None),
-    protein_type: str = Form(""),
-    gelatin_source: str = Form("")
+    whc: bool = Form(False)
 ):
-    """Enhanced article checking with additional fields"""
+    """Enhanced article checking with simplified fields"""
     session = Session()
     try:
+        if not doi or not doi.strip():
+            return JSONResponse({
+                "status": "error",
+                "message": "❌ DOI is required!"
+            })
+        
         # Check for duplicates
-        is_duplicate, existing_article = doi_exists(session, doi)
+        is_duplicate, existing_article = doi_exists_in_db(session, doi)
         
         if is_duplicate:
             logger.info(f"Duplicate DOI detected: {doi}")
             return JSONResponse({
                 "status": "duplicate",
-                "message": f"⚠️ Article already exists! Similar to: {existing_article.title[:50]}...",
+                "message": f"🔴 This article has already been downloaded! Similar to: {existing_article.title[:50] if existing_article.title else existing_article.doi}...",
                 "existing_article": {
                     "title": existing_article.title,
                     "doi": existing_article.doi,
@@ -196,19 +216,14 @@ async def check_article(
                 }
             })
         
-        # Create new article with enhanced fields
+        # Create new article with simplified fields
         new_article = Article(
-            doi=doi,
-            title=title,
-            url=url,
+            doi=normalize_doi(doi),
+            title=title.strip() if title else "",
+            protein_name=protein_name.strip() if protein_name else "",
             hardness=hardness,
             whc=whc,
-            tags=tags,
-            author=author,
-            journal=journal,
-            publication_year=publication_year,
-            protein_type=protein_type,
-            gelatin_source=gelatin_source
+            source_file="manual_entry"
         )
         
         session.add(new_article)
@@ -217,119 +232,167 @@ async def check_article(
         logger.info(f"New article added: {doi}")
         return JSONResponse({
             "status": "success",
-            "message": "✅ Article successfully saved with enhanced details!",
+            "message": "✅ Article successfully saved!",
             "article_id": new_article.id
         })
         
     except Exception as e:
         session.rollback()
         logger.error(f"Error checking article: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        return JSONResponse({
+            "status": "error",
+            "message": f"❌ Database error: {str(e)}"
+        })
     finally:
         session.close()
 
 @app.post("/upload_file")
 async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """Enhanced file upload with background processing and detailed logging"""
-    if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
-        raise HTTPException(status_code=400, detail="Only CSV and Excel files are supported")
+    """Enhanced file upload with robust error handling and support for CSV/Excel"""
     
-    # Read file content
-    file_content = await file.read()
-    file_hash = generate_file_hash(file_content)
-    file_size = len(file_content)
+    # Validate file type
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
     
-    # Save file
-    filepath = UPLOAD_DIR / file.filename
-    async with aiofiles.open(filepath, 'wb') as f:
-        await f.write(file_content)
+    file_extension = file.filename.lower().split('.')[-1]
+    if file_extension not in ['csv', 'xlsx', 'xls']:
+        raise HTTPException(status_code=400, detail="Only CSV and Excel files (.csv, .xlsx, .xls) are supported")
     
+    session = Session()
     try:
-        # Read the uploaded file
-        if filepath.suffix.lower() == '.csv':
-            df = pd.read_csv(filepath, encoding='utf-8')
-        else:
-            df = pd.read_excel(filepath)
+        # Read file content
+        file_content = await file.read()
+        if not file_content:
+            raise HTTPException(status_code=400, detail="File is empty")
         
-        session = Session()
+        file_hash = generate_file_hash(file_content)
+        file_size = len(file_content)
+        
+        # Save file temporarily
+        filepath = UPLOAD_DIR / file.filename
+        with open(filepath, 'wb') as f:
+            f.write(file_content)
+        
+        # Read the uploaded file with robust error handling
+        try:
+            if file_extension == 'csv':
+                # Try different encodings for CSV
+                encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+                df = None
+                for encoding in encodings:
+                    try:
+                        df = pd.read_csv(filepath, encoding=encoding)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                
+                if df is None:
+                    raise ValueError("Unable to read CSV file with any supported encoding")
+            else:
+                df = pd.read_excel(filepath)
+            
+            if df.empty:
+                raise ValueError("File contains no data")
+                
+        except Exception as e:
+            logger.error(f"File reading error: {e}")
+            if filepath.exists():
+                filepath.unlink()
+            raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
+        
         added_count = 0
         duplicate_count = 0
         error_count = 0
-        processed_dois = []
+        processed_dois = set()
         
-        # Enhanced column mapping
-        column_mapping = {
-            'doi': ['doi', 'DOI', 'Doi', 'digital_object_identifier'],
-            'title': ['title', 'Title', 'TITLE', 'article_title'],
-            'tags': ['tags', 'Tags', 'TAGS', 'keywords'],
-            'author': ['author', 'Author', 'AUTHORS', 'authors'],
-            'journal': ['journal', 'Journal', 'JOURNAL', 'publication'],
-            'year': ['year', 'Year', 'YEAR', 'publication_year'],
-            'protein_type': ['protein_type', 'protein', 'Protein_Type'],
-            'gelatin_source': ['gelatin_source', 'source', 'Gelatin_Source']
-        }
-        
-        def get_column_value(row, field_name):
-            """Get column value with flexible column name matching"""
-            possible_names = column_mapping.get(field_name, [field_name])
+        # Enhanced column mapping with case-insensitive matching
+        def find_column(df, possible_names):
+            """Find column with case-insensitive matching"""
+            df_columns_lower = [col.lower().strip() for col in df.columns]
             for name in possible_names:
-                if name in row and pd.notna(row[name]):
-                    return str(row[name]).strip()
-            return ""
+                name_lower = name.lower().strip()
+                if name_lower in df_columns_lower:
+                    actual_col = df.columns[df_columns_lower.index(name_lower)]
+                    return actual_col
+            return None
+        
+        # Find required columns
+        doi_col = find_column(df, ['doi', 'DOI', 'digital_object_identifier', 'Digital Object Identifier'])
+        title_col = find_column(df, ['title', 'Title', 'TITLE', 'article_title', 'Article Title'])
+        protein_col = find_column(df, ['protein_name', 'protein', 'Protein', 'Protein_Name', 'protein_type'])
+        hardness_col = find_column(df, ['hardness', 'Hardness', 'gel_hardness', 'Gel_Hardness', 'Gel Hardness'])
+        whc_col = find_column(df, ['whc', 'WHC', 'water_holding_capacity', 'Water_Holding_Capacity', 'Water Holding Capacity'])
+        
+        if not doi_col:
+            if filepath.exists():
+                filepath.unlink()
+            raise HTTPException(status_code=400, detail="DOI column not found. Please ensure your file has a 'DOI' column.")
+        
+        logger.info(f"Processing file with {len(df)} rows")
         
         # Process each row
         for index, row in df.iterrows():
             try:
-                doi = get_column_value(row, 'doi')
-                if not doi:
+                # Get DOI
+                doi_value = row[doi_col] if doi_col and pd.notna(row[doi_col]) else ""
+                doi_normalized = normalize_doi(str(doi_value))
+                
+                if not doi_normalized:
                     error_count += 1
                     continue
                 
-                # Check for duplicates
-                is_duplicate, _ = doi_exists(session, doi)
-                
-                if is_duplicate or doi in processed_dois:
+                # Skip if already processed in this batch
+                if doi_normalized in processed_dois:
                     duplicate_count += 1
                     continue
                 
-                # Extract additional fields
-                title = get_column_value(row, 'title')
-                tags = get_column_value(row, 'tags')
-                author = get_column_value(row, 'author')
-                journal = get_column_value(row, 'journal')
+                # Check if exists in database
+                is_duplicate, existing_article = doi_exists_in_db(session, doi_normalized)
                 
-                # Handle year conversion
-                year_str = get_column_value(row, 'year')
-                publication_year = None
-                if year_str and year_str.isdigit():
-                    publication_year = int(year_str)
+                if is_duplicate:
+                    duplicate_count += 1
+                    continue
                 
-                protein_type = get_column_value(row, 'protein_type')
-                gelatin_source = get_column_value(row, 'gelatin_source')
+                # Extract other fields
+                title = str(row[title_col]).strip() if title_col and pd.notna(row[title_col]) else ""
+                protein_name = str(row[protein_col]).strip() if protein_col and pd.notna(row[protein_col]) else ""
+                
+                # Handle boolean fields
+                hardness = False
+                if hardness_col and pd.notna(row[hardness_col]):
+                    hardness_val = str(row[hardness_col]).lower().strip()
+                    hardness = hardness_val in ['true', 'yes', '1', 'y', 'hardness']
+                
+                whc = False
+                if whc_col and pd.notna(row[whc_col]):
+                    whc_val = str(row[whc_col]).lower().strip()
+                    whc = whc_val in ['true', 'yes', '1', 'y', 'whc']
                 
                 # Create new article
                 new_article = Article(
-                    doi=doi,
+                    doi=doi_normalized,
                     title=title,
-                    tags=tags,
-                    author=author,
-                    journal=journal,
-                    publication_year=publication_year,
-                    protein_type=protein_type,
-                    gelatin_source=gelatin_source,
-                    file_hash=file_hash
+                    protein_name=protein_name,
+                    hardness=hardness,
+                    whc=whc,
+                    file_hash=file_hash,
+                    source_file=file.filename
                 )
                 
                 session.add(new_article)
-                processed_dois.append(doi)
+                processed_dois.add(doi_normalized)
                 added_count += 1
+                
+                # Commit in batches to avoid memory issues
+                if added_count % 100 == 0:
+                    session.commit()
                 
             except Exception as e:
                 error_count += 1
-                logger.error(f"Error processing row {index}: {str(e)}")
+                logger.error(f"Error processing row {index + 1}: {str(e)}")
                 continue
         
-        # Commit all changes
+        # Final commit
         session.commit()
         
         # Record upload history
@@ -337,7 +400,8 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
             filename=file.filename,
             articles_added=added_count,
             duplicates_found=duplicate_count,
-            file_size=file_size
+            file_size=file_size,
+            total_rows=len(df)
         )
         session.add(upload_record)
         session.commit()
@@ -350,21 +414,27 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
             "duplicates": duplicate_count,
             "errors": error_count,
             "total_processed": len(df),
-            "message": f"📊 Processing complete! Added {added_count} new articles, found {duplicate_count} duplicates"
+            "message": f"📊 Processing complete! Added {added_count} new articles, found {duplicate_count} duplicates, {error_count} errors"
         })
         
+    except HTTPException:
+        raise
     except Exception as e:
+        session.rollback()
         logger.error(f"File upload error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"File processing error: {str(e)}")
     finally:
         session.close()
         # Clean up uploaded file
         if filepath.exists():
-            filepath.unlink()
+            try:
+                filepath.unlink()
+            except:
+                pass
 
 @app.get("/export")
 async def export_articles(format: str = "csv"):
-    """Enhanced export with multiple formats and comprehensive data"""
+    """Enhanced export with simplified fields only"""
     session = Session()
     try:
         articles = session.query(Article).order_by(Article.created_at.desc()).all()
@@ -372,24 +442,15 @@ async def export_articles(format: str = "csv"):
         if not articles:
             raise HTTPException(status_code=404, detail="No articles found to export")
         
-        # Create comprehensive dataframe
+        # Create simplified dataframe with only required fields
         data = []
         for article in articles:
             data.append({
-                'ID': article.id,
                 'DOI': article.doi,
-                'Title': article.title,
-                'URL': article.url,
-                'Author': article.author,
-                'Journal': article.journal,
-                'Publication_Year': article.publication_year,
-                'Protein_Type': article.protein_type,
-                'Gelatin_Source': article.gelatin_source,
+                'Title': article.title or '',
+                'Protein_Name': article.protein_name or '',
                 'Gel_Hardness': 'Yes' if article.hardness else 'No',
-                'Water_Holding_Capacity': 'Yes' if article.whc else 'No',
-                'Tags': article.tags,
-                'Created_Date': article.created_at.strftime('%Y-%m-%d %H:%M:%S') if article.created_at else '',
-                'Last_Updated': article.updated_at.strftime('%Y-%m-%d %H:%M:%S') if article.updated_at else ''
+                'Water_Holding_Capacity': 'Yes' if article.whc else 'No'
             })
         
         df = pd.DataFrame(data)
@@ -398,15 +459,15 @@ async def export_articles(format: str = "csv"):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         
         if format.lower() == 'excel':
-            export_path = EXPORT_DIR / f"research_articles_backup_{timestamp}.xlsx"
+            export_path = EXPORT_DIR / f"research_articles_{timestamp}.xlsx"
             df.to_excel(export_path, index=False)
             media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            filename = f"research_articles_backup_{timestamp}.xlsx"
+            filename = f"research_articles_{timestamp}.xlsx"
         else:
-            export_path = EXPORT_DIR / f"research_articles_backup_{timestamp}.csv"
+            export_path = EXPORT_DIR / f"research_articles_{timestamp}.csv"
             df.to_csv(export_path, index=False, encoding='utf-8')
             media_type = 'text/csv'
-            filename = f"research_articles_backup_{timestamp}.csv"
+            filename = f"research_articles_{timestamp}.csv"
         
         logger.info(f"Export completed: {filename}, {len(articles)} articles")
         
@@ -417,6 +478,9 @@ async def export_articles(format: str = "csv"):
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
         
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        raise HTTPException(status_code=500, detail=f"Export error: {str(e)}")
     finally:
         session.close()
 
@@ -428,27 +492,33 @@ async def get_statistics():
         total_articles = session.query(Article).count()
         hardness_count = session.query(Article).filter(Article.hardness == True).count()
         whc_count = session.query(Article).filter(Article.whc == True).count()
+        unique_dois = session.query(Article.doi).distinct().count()
         
-        # Calculate unique vs duplicate articles
-        unique_count = session.query(Article.doi).distinct().count()
-        duplicates = total_articles - unique_count
-        
-        # Recent activity
+        # Recent articles
         recent_articles = session.query(Article).order_by(Article.created_at.desc()).limit(10).all()
         
         # Upload statistics
         recent_uploads = session.query(UploadHistory).order_by(UploadHistory.upload_date.desc()).limit(5).all()
         
+        # Calculate duplicate percentage
+        duplicate_percentage = 0
+        if total_articles > 0:
+            duplicate_percentage = round(((total_articles - unique_dois) / total_articles) * 100, 1)
+        
         return {
             "total_articles": total_articles,
-            "unique_articles": unique_count,
-            "duplicate_articles": duplicates,
+            "unique_articles": unique_dois,
+            "duplicate_articles": total_articles - unique_dois,
+            "duplicate_percentage": duplicate_percentage,
             "hardness_articles": hardness_count,
             "whc_articles": whc_count,
+            "hardness_percentage": round((hardness_count / total_articles * 100), 1) if total_articles > 0 else 0,
+            "whc_percentage": round((whc_count / total_articles * 100), 1) if total_articles > 0 else 0,
             "recent_articles": [
                 {
-                    "title": article.title,
+                    "title": article.title or "No Title",
                     "doi": article.doi,
+                    "protein_name": article.protein_name or "Not specified",
                     "created_at": article.created_at.isoformat() if article.created_at else None
                 }
                 for article in recent_articles
@@ -458,10 +528,25 @@ async def get_statistics():
                     "filename": upload.filename,
                     "date": upload.upload_date.isoformat() if upload.upload_date else None,
                     "added": upload.articles_added,
-                    "duplicates": upload.duplicates_found
+                    "duplicates": upload.duplicates_found,
+                    "total_rows": upload.total_rows
                 }
                 for upload in recent_uploads
             ]
+        }
+    except Exception as e:
+        logger.error(f"Stats error: {e}")
+        return {
+            "total_articles": 0,
+            "unique_articles": 0,
+            "duplicate_articles": 0,
+            "duplicate_percentage": 0,
+            "hardness_articles": 0,
+            "whc_articles": 0,
+            "hardness_percentage": 0,
+            "whc_percentage": 0,
+            "recent_articles": [],
+            "recent_uploads": []
         }
     finally:
         session.close()
@@ -472,12 +557,11 @@ async def search_articles(q: str, limit: int = 20):
     session = Session()
     try:
         # Search in multiple fields
+        search_term = f"%{q}%"
         articles = session.query(Article).filter(
-            (Article.title.contains(q)) |
-            (Article.doi.contains(q)) |
-            (Article.tags.contains(q)) |
-            (Article.author.contains(q)) |
-            (Article.journal.contains(q))
+            (Article.title.like(search_term)) |
+            (Article.doi.like(search_term)) |
+            (Article.protein_name.like(search_term))
         ).limit(limit).all()
         
         results = []
@@ -485,15 +569,38 @@ async def search_articles(q: str, limit: int = 20):
             results.append({
                 "id": article.id,
                 "doi": article.doi,
-                "title": article.title,
-                "author": article.author,
-                "journal": article.journal,
-                "tags": article.tags,
+                "title": article.title or "No Title",
+                "protein_name": article.protein_name or "Not specified",
+                "hardness": article.hardness,
+                "whc": article.whc,
                 "created_at": article.created_at.isoformat() if article.created_at else None
             })
         
         return {"results": results, "count": len(results)}
         
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        return {"results": [], "count": 0}
+    finally:
+        session.close()
+
+@app.delete("/api/articles/{article_id}")
+async def delete_article(article_id: int):
+    """Delete an article by ID"""
+    session = Session()
+    try:
+        article = session.query(Article).filter(Article.id == article_id).first()
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+        
+        session.delete(article)
+        session.commit()
+        
+        return {"status": "success", "message": "Article deleted successfully"}
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Delete error: {e}")
+        raise HTTPException(status_code=500, detail=f"Delete error: {str(e)}")
     finally:
         session.close()
 
