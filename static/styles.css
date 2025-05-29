@@ -99,16 +99,6 @@ body::before {
     padding-top: 30px;
 }
 
-.header::before {
-    content: '🧬';
-    position: absolute;
-    top: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 3rem;
-    animation: pulse 2s infinite;
-}
-
 @keyframes pulse {
     0%, 100% { 
         transform: translateX(-50%) scale(1); 
