@@ -429,6 +429,10 @@ async def get_statistics():
         hardness_count = session.query(Article).filter(Article.hardness == True).count()
         whc_count = session.query(Article).filter(Article.whc == True).count()
         
+        # Calculate unique vs duplicate articles
+        unique_count = session.query(Article.doi).distinct().count()
+        duplicates = total_articles - unique_count
+        
         # Recent activity
         recent_articles = session.query(Article).order_by(Article.created_at.desc()).limit(10).all()
         
@@ -437,6 +441,8 @@ async def get_statistics():
         
         return {
             "total_articles": total_articles,
+            "unique_articles": unique_count,
+            "duplicate_articles": duplicates,
             "hardness_articles": hardness_count,
             "whc_articles": whc_count,
             "recent_articles": [
@@ -500,36 +506,3 @@ if __name__ == "__main__":
         reload=True,
         log_level="info"
     )
-@app.route('/stats')
-def get_stats():
-    try:
-        conn = sqlite3.connect('articles.db')
-        cursor = conn.cursor()
-        
-        # Get total articles
-        cursor.execute("SELECT COUNT(*) FROM articles")
-        total = cursor.fetchone()[0]
-        
-        # Get unique articles (simplified - using DOI uniqueness)
-        cursor.execute("SELECT COUNT(DISTINCT doi) FROM articles")
-        unique = cursor.fetchone()[0]
-        
-        # Calculate duplicates
-        duplicates = total - unique
-        
-        conn.close()
-        
-        return jsonify({
-            'total': total,
-            'unique': unique,
-            'duplicates': duplicates
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-        from flask_talisman import Talisman
-
-# Add after creating Flask app
-Talisman(app, force_https=False)  # Set to True in production
-
-# Add CSRF protection
-app.config['SECRET_KEY'] = 'your-secret-key-here'
