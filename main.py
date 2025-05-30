@@ -18,6 +18,7 @@ import aiofiles
 import logging
 from pathlib import Path
 import sqlite3
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,12 +30,12 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# CORS middleware for better security and flexibility
+# Fixed CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -61,7 +62,7 @@ class Article(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     file_hash = Column(String, nullable=True)
-    source_file = Column(String, nullable=True)  # Track which file it came from
+    source_file = Column(String, nullable=True)
 
 class UploadHistory(Base):
     __tablename__ = "upload_history"
@@ -73,12 +74,13 @@ class UploadHistory(Base):
     file_size = Column(Integer, default=0)
     total_rows = Column(Integer, default=0)
 
-# Create tables
+# Create tables with error handling
 try:
     Base.metadata.create_all(engine)
     logger.info("Database tables created successfully")
 except Exception as e:
     logger.error(f"Database setup error: {e}")
+    raise
 
 # Enhanced directory structure
 UPLOAD_DIR = Path("uploads")
@@ -135,17 +137,18 @@ def advanced_doi_similarity(doi1: str, doi2: str) -> float:
 
 def doi_exists_in_db(session, doi: str, similarity_threshold: float = 85.0) -> tuple[bool, Optional[Article]]:
     """Enhanced duplicate detection with configurable threshold"""
-    normalized_doi = normalize_doi(doi)
-    if not normalized_doi:
-        return False, None
-    
     try:
+        normalized_doi = normalize_doi(doi)
+        if not normalized_doi:
+            return False, None
+        
         articles = session.query(Article).all()
         
         for article in articles:
-            similarity = advanced_doi_similarity(article.doi, doi)
-            if similarity > similarity_threshold:
-                return True, article
+            if article.doi:
+                similarity = advanced_doi_similarity(article.doi, doi)
+                if similarity > similarity_threshold:
+                    return True, article
         
         return False, None
     except Exception as e:
@@ -192,20 +195,29 @@ async def check_article(
     hardness: bool = Form(False),
     whc: bool = Form(False)
 ):
-    """Enhanced article checking with simplified fields"""
+    """Enhanced article checking with better error handling"""
     session = Session()
     try:
+        # Validate input
         if not doi or not doi.strip():
             return JSONResponse({
                 "status": "error",
                 "message": "❌ DOI is required!"
-            })
+            }, status_code=400)
+        
+        # Normalize DOI
+        normalized_doi = normalize_doi(doi)
+        if not normalized_doi:
+            return JSONResponse({
+                "status": "error",
+                "message": "❌ Invalid DOI format!"
+            }, status_code=400)
         
         # Check for duplicates
-        is_duplicate, existing_article = doi_exists_in_db(session, doi)
+        is_duplicate, existing_article = doi_exists_in_db(session, normalized_doi)
         
         if is_duplicate:
-            logger.info(f"Duplicate DOI detected: {doi}")
+            logger.info(f"Duplicate DOI detected: {normalized_doi}")
             return JSONResponse({
                 "status": "duplicate",
                 "message": f"🔴 This article has already been downloaded! Similar to: {existing_article.title[:50] if existing_article.title else existing_article.doi}...",
@@ -216,20 +228,20 @@ async def check_article(
                 }
             })
         
-        # Create new article with simplified fields
+        # Create new article
         new_article = Article(
-            doi=normalize_doi(doi),
+            doi=normalized_doi,
             title=title.strip() if title else "",
             protein_name=protein_name.strip() if protein_name else "",
-            hardness=hardness,
-            whc=whc,
+            hardness=bool(hardness),
+            whc=bool(whc),
             source_file="manual_entry"
         )
         
         session.add(new_article)
         session.commit()
         
-        logger.info(f"New article added: {doi}")
+        logger.info(f"New article added: {normalized_doi}")
         return JSONResponse({
             "status": "success",
             "message": "✅ Article successfully saved!",
@@ -239,31 +251,42 @@ async def check_article(
     except Exception as e:
         session.rollback()
         logger.error(f"Error checking article: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return JSONResponse({
             "status": "error",
             "message": f"❌ Database error: {str(e)}"
-        })
+        }, status_code=500)
     finally:
         session.close()
 
 @app.post("/upload_file")
 async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """Enhanced file upload with robust error handling and support for CSV/Excel"""
-    
-    # Validate file type
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file provided")
-    
-    file_extension = file.filename.lower().split('.')[-1]
-    if file_extension not in ['csv', 'xlsx', 'xls']:
-        raise HTTPException(status_code=400, detail="Only CSV and Excel files (.csv, .xlsx, .xls) are supported")
-    
+    """Enhanced file upload with robust error handling"""
+    filepath = None
     session = Session()
+    
     try:
+        # Validate file
+        if not file.filename:
+            return JSONResponse({
+                "status": "error",
+                "message": "❌ No file provided"
+            }, status_code=400)
+        
+        file_extension = file.filename.lower().split('.')[-1]
+        if file_extension not in ['csv', 'xlsx', 'xls']:
+            return JSONResponse({
+                "status": "error",
+                "message": "❌ Only CSV and Excel files (.csv, .xlsx, .xls) are supported"
+            }, status_code=400)
+        
         # Read file content
         file_content = await file.read()
         if not file_content:
-            raise HTTPException(status_code=400, detail="File is empty")
+            return JSONResponse({
+                "status": "error",
+                "message": "❌ File is empty"
+            }, status_code=400)
         
         file_hash = generate_file_hash(file_content)
         file_size = len(file_content)
@@ -273,7 +296,7 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
         with open(filepath, 'wb') as f:
             f.write(file_content)
         
-        # Read the uploaded file with robust error handling
+        # Read the uploaded file
         try:
             if file_extension == 'csv':
                 # Try different encodings for CSV
@@ -287,25 +310,33 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
                         continue
                 
                 if df is None:
-                    raise ValueError("Unable to read CSV file with any supported encoding")
+                    return JSONResponse({
+                        "status": "error",
+                        "message": "❌ Unable to read CSV file with any supported encoding"
+                    }, status_code=400)
             else:
                 df = pd.read_excel(filepath)
             
             if df.empty:
-                raise ValueError("File contains no data")
+                return JSONResponse({
+                    "status": "error",
+                    "message": "❌ File contains no data"
+                }, status_code=400)
                 
         except Exception as e:
             logger.error(f"File reading error: {e}")
-            if filepath.exists():
-                filepath.unlink()
-            raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
+            return JSONResponse({
+                "status": "error",
+                "message": f"❌ Error reading file: {str(e)}"
+            }, status_code=400)
         
+        # Initialize counters
         added_count = 0
         duplicate_count = 0
         error_count = 0
         processed_dois = set()
         
-        # Enhanced column mapping with case-insensitive matching
+        # Enhanced column mapping
         def find_column(df, possible_names):
             """Find column with case-insensitive matching"""
             df_columns_lower = [col.lower().strip() for col in df.columns]
@@ -324,9 +355,10 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
         whc_col = find_column(df, ['whc', 'WHC', 'water_holding_capacity', 'Water_Holding_Capacity', 'Water Holding Capacity'])
         
         if not doi_col:
-            if filepath.exists():
-                filepath.unlink()
-            raise HTTPException(status_code=400, detail="DOI column not found. Please ensure your file has a 'DOI' column.")
+            return JSONResponse({
+                "status": "error",
+                "message": "❌ DOI column not found. Please ensure your file has a 'DOI' column."
+            }, status_code=400)
         
         logger.info(f"Processing file with {len(df)} rows")
         
@@ -383,7 +415,7 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
                 processed_dois.add(doi_normalized)
                 added_count += 1
                 
-                # Commit in batches to avoid memory issues
+                # Commit in batches
                 if added_count % 100 == 0:
                     session.commit()
                 
@@ -417,24 +449,26 @@ async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File
             "message": f"📊 Processing complete! Added {added_count} new articles, found {duplicate_count} duplicates, {error_count} errors"
         })
         
-    except HTTPException:
-        raise
     except Exception as e:
         session.rollback()
         logger.error(f"File upload error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"File processing error: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return JSONResponse({
+            "status": "error",
+            "message": f"❌ File processing error: {str(e)}"
+        }, status_code=500)
     finally:
         session.close()
         # Clean up uploaded file
-        if filepath.exists():
+        if filepath and filepath.exists():
             try:
                 filepath.unlink()
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Error cleaning up file: {e}")
 
 @app.get("/export")
 async def export_articles(format: str = "csv"):
-    """Enhanced export with simplified fields only"""
+    """Enhanced export with better error handling"""
     session = Session()
     try:
         articles = session.query(Article).order_by(Article.created_at.desc()).all()
@@ -442,11 +476,11 @@ async def export_articles(format: str = "csv"):
         if not articles:
             raise HTTPException(status_code=404, detail="No articles found to export")
         
-        # Create simplified dataframe with only required fields
+        # Create simplified dataframe
         data = []
         for article in articles:
             data.append({
-                'DOI': article.doi,
+                'DOI': article.doi or '',
                 'Title': article.title or '',
                 'Protein_Name': article.protein_name or '',
                 'Gel_Hardness': 'Yes' if article.hardness else 'No',
@@ -486,7 +520,7 @@ async def export_articles(format: str = "csv"):
 
 @app.get("/api/stats")
 async def get_statistics():
-    """API endpoint for dashboard statistics"""
+    """API endpoint for dashboard statistics with better error handling"""
     session = Session()
     try:
         total_articles = session.query(Article).count()
@@ -505,7 +539,7 @@ async def get_statistics():
         if total_articles > 0:
             duplicate_percentage = round(((total_articles - unique_dois) / total_articles) * 100, 1)
         
-        return {
+        return JSONResponse({
             "total_articles": total_articles,
             "unique_articles": unique_dois,
             "duplicate_articles": total_articles - unique_dois,
@@ -533,10 +567,11 @@ async def get_statistics():
                 }
                 for upload in recent_uploads
             ]
-        }
+        })
     except Exception as e:
         logger.error(f"Stats error: {e}")
-        return {
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return JSONResponse({
             "total_articles": 0,
             "unique_articles": 0,
             "duplicate_articles": 0,
@@ -547,13 +582,13 @@ async def get_statistics():
             "whc_percentage": 0,
             "recent_articles": [],
             "recent_uploads": []
-        }
+        })
     finally:
         session.close()
 
 @app.get("/api/search")
 async def search_articles(q: str, limit: int = 20):
-    """Advanced search functionality"""
+    """Advanced search functionality with better error handling"""
     session = Session()
     try:
         # Search in multiple fields
@@ -576,17 +611,17 @@ async def search_articles(q: str, limit: int = 20):
                 "created_at": article.created_at.isoformat() if article.created_at else None
             })
         
-        return {"results": results, "count": len(results)}
+        return JSONResponse({"results": results, "count": len(results)})
         
     except Exception as e:
         logger.error(f"Search error: {e}")
-        return {"results": [], "count": 0}
+        return JSONResponse({"results": [], "count": 0})
     finally:
         session.close()
 
 @app.delete("/api/articles/{article_id}")
 async def delete_article(article_id: int):
-    """Delete an article by ID"""
+    """Delete an article by ID with better error handling"""
     session = Session()
     try:
         article = session.query(Article).filter(Article.id == article_id).first()
@@ -596,13 +631,25 @@ async def delete_article(article_id: int):
         session.delete(article)
         session.commit()
         
-        return {"status": "success", "message": "Article deleted successfully"}
+        return JSONResponse({"status": "success", "message": "Article deleted successfully"})
     except Exception as e:
         session.rollback()
         logger.error(f"Delete error: {e}")
         raise HTTPException(status_code=500, detail=f"Delete error: {str(e)}")
     finally:
         session.close()
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    try:
+        session = Session()
+        session.execute("SELECT 1")
+        session.close()
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
