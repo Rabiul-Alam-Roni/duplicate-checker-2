@@ -1,191 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Duplicate Checker for AI Bobby Team</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        /* Styles as before, from your previous code. Keep or update as you wish. */
-        /* ... use your own styles or keep what I posted before ... */
-    </style>
+  <meta charset="UTF-8" />
+  <title>Duplicate Checker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- (Optional) include Bootstrap CSS for styling -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" integrity="sha512-..." crossorigin="anonymous" />
 </head>
-<body>
-    <div class="container">
-        <!-- Header and forms as before, see your posted HTML for details -->
-        <!-- ... all your form and stats code ... -->
+<body class="p-4">
+  <div class="container">
+    <h1 class="mb-4">Duplicate Checker Tool</h1>
+
+    <!-- Single Article Check Section -->
+    <div class="mb-5 p-3 border rounded">
+      <h3>Check a Single Article</h3>
+      <p>Enter a DOI or article title to check if it's a duplicate:</p>
+      <div class="input-group mb-3">
+        <input type="text" id="articleInput" class="form-control" placeholder="Enter DOI or Title" />
+        <button id="checkBtn" class="btn btn-primary">Check</button>
+      </div>
+      <div id="singleMessage" class="fw-bold"></div>
     </div>
-    <script>
-        // (Shortened for clarity: this is the correct checkDuplicate, uploadFile, and exportDatabase function)
 
-        // Helper function to show responses
-        function showResponse(element, type, message) {
-            element.innerHTML = message;
-            element.className = `response ${type}`;
-            element.style.display = 'flex';
-        }
-        function clearForm() {
-            document.getElementById('doi').value = '';
-            document.getElementById('title').value = '';
-            document.getElementById('protein').value = '';
-            document.getElementById('hardness').checked = false;
-            document.getElementById('whc').checked = false;
-        }
-        // Article checking function
-        async function checkDuplicate() {
-            const doi = document.getElementById('doi').value.trim();
-            const title = document.getElementById('title').value.trim();
-            const protein = document.getElementById('protein').value.trim();
-            const hardness = document.getElementById('hardness').checked;
-            const whc = document.getElementById('whc').checked;
-            const loading = document.getElementById('loading');
-            const response = document.getElementById('response');
+    <!-- Bulk Upload Section -->
+    <div class="mb-5 p-3 border rounded">
+      <h3>Upload CSV/Excel for Batch Check</h3>
+      <p>Select a CSV or XLSX file containing a list of articles. The tool will identify any duplicate entries within the file.</p>
+      <div class="mb-3">
+        <input type="file" id="fileInput" accept=".csv,.xlsx" class="form-control" />
+      </div>
+      <button id="uploadBtn" class="btn btn-secondary">Upload File</button>
+      <div id="uploadMessage" class="fw-bold mt-2"></div>
+    </div>
 
-            if (!doi) {
-                showResponse(response, 'error', '<i class="fas fa-exclamation-triangle"></i> Please enter a DOI');
-                return;
-            }
+    <!-- Statistics Section -->
+    <div class="mb-5 p-3 border rounded">
+      <h3>Statistics</h3>
+      <p>Total Articles: <span id="totalCount">0</span></p>
+      <p>Duplicate Entries: <span id="dupCount">0</span></p>
+    </div>
 
-            loading.style.display = 'block';
-            response.style.display = 'none';
+    <!-- Download Button -->
+    <div class="mb-5">
+      <button id="downloadBtn" class="btn btn-success" disabled>Download Results</button>
+    </div>
+  </div>
 
-            try {
-                const formData = new FormData();
-                formData.append('doi', doi);
-                formData.append('title', title);
-                formData.append('protein_name', protein);
-                formData.append('hardness', hardness ? 'true' : '');
-                formData.append('whc', whc ? 'true' : '');
+  <script>
+    // Helper function to update the statistics display from the API
+    async function updateStats() {
+      try {
+        const res = await fetch("/api/stats");
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById("totalCount").textContent = data.total;
+        document.getElementById("dupCount").textContent = data.duplicates;
+      } catch (err) {
+        console.error("Failed to update stats:", err);
+      }
+    }
 
-                const result = await fetch('/check_article', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await result.json();
-                
-                if (result.ok) {
-                    if (data.status === 'duplicate') {
-                        showResponse(response, 'duplicate', `<i class="fas fa-exclamation-circle"></i> ${data.message}`);
-                    } else if (data.status === 'success') {
-                        showResponse(response, 'success', `<i class="fas fa-check-circle"></i> ${data.message}`);
-                        clearForm();
-                    } else {
-                        showResponse(response, 'error', `<i class="fas fa-times-circle"></i> ${data.message}`);
-                    }
-                } else {
-                    showResponse(response, 'error', `<i class="fas fa-times-circle"></i> Error: ${data.message || 'Unknown error'}`);
-                }
-            } catch (error) {
-                showResponse(response, 'error', `<i class="fas fa-exclamation-triangle"></i> Network Error: ${error.message}`);
-            } finally {
-                loading.style.display = 'none';
-            }
-        }
-        async function uploadFile() {
-            const fileInput = document.getElementById('fileUpload');
-            const progressBar = document.getElementById('progressBar');
-            const progressFill = document.getElementById('progressFill');
-            const fileResponse = document.getElementById('fileResponse');
-
-            if (fileInput.files.length === 0) {
-                showResponse(fileResponse, 'error', '<i class="fas fa-exclamation-triangle"></i> Please select a CSV or Excel file');
-                return;
-            }
-
-            const file = fileInput.files[0];
-            const formData = new FormData();
-            formData.append('file', file);
-
-            progressBar.style.display = 'block';
-            progressFill.style.width = '0%';
-            fileResponse.style.display = 'none';
-
-            try {
-                let progress = 0;
-                const progressInterval = setInterval(() => {
-                    progress += Math.random() * 30;
-                    if (progress > 90) progress = 90;
-                    progressFill.style.width = progress + '%';
-                }, 200);
-
-                const result = await fetch('/upload_file', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                clearInterval(progressInterval);
-                progressFill.style.width = '100%';
-
-                const data = await result.json();
-                
-                if (result.ok) {
-                    showResponse(fileResponse, 'success', `<i class="fas fa-check-circle"></i> ${data.message}`);
-                } else {
-                    showResponse(fileResponse, 'error', `<i class="fas fa-times-circle"></i> Upload Error: ${data.detail || 'File processing failed'}`);
-                }
-            } catch (error) {
-                showResponse(fileResponse, 'error', `<i class="fas fa-exclamation-triangle"></i> Upload Error: ${error.message}`);
-            } finally {
-                setTimeout(() => {
-                    progressBar.style.display = 'none';
-                    progressFill.style.width = '0%';
-                }, 1000);
-            }
-        }
-        async function exportDatabase() {
-            try {
-                showResponse(document.getElementById('fileResponse'), 'info', '<i class="fas fa-spinner fa-spin"></i> Preparing database export...');
-                const response = await fetch('/export', { method: 'GET' });
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = `research_database_${new Date().toISOString().split('T')[0]}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showResponse(document.getElementById('fileResponse'), 'success', '<i class="fas fa-download"></i> Database successfully exported');
-                } else {
-                    const errorData = await response.json();
-                    showResponse(document.getElementById('fileResponse'), 'error', `<i class="fas fa-times-circle"></i> Export failed: ${errorData.detail || 'Unknown error'}`);
-                }
-            } catch (error) {
-                showResponse(document.getElementById('fileResponse'), 'error', `<i class="fas fa-exclamation-triangle"></i> Export Error: ${error.message}`);
-            }
-        }
-        async function showStats() {
-            const statsGrid = document.getElementById('statsGrid');
-            try {
-                const response = await fetch('/api/stats', { method: 'GET' });
-                if (response.ok) {
-                    const stats = await response.json();
-                    document.getElementById('totalArticles').textContent = stats.total_articles || 0;
-                    document.getElementById('duplicatesFound').textContent = stats.duplicate_articles || 0;
-                    document.getElementById('uniqueArticles').textContent = stats.unique_articles || 0;
-                    document.getElementById('withHardness').textContent = stats.hardness_articles || 0;
-                    document.getElementById('withWHC').textContent = stats.whc_articles || 0;
-                    statsGrid.style.display = 'grid';
-                } else {
-                    showResponse(document.getElementById('fileResponse'), 'error', '<i class="fas fa-times-circle"></i> Failed to load statistics');
-                }
-            } catch (error) {
-                showResponse(document.getElementById('fileResponse'), 'error', `<i class="fas fa-exclamation-triangle"></i> Stats Error: ${error.message}`);
-            }
-        }
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('doi').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') checkDuplicate();
-            });
+    // Handle single article check
+    document.getElementById("checkBtn").addEventListener("click", async () => {
+      const query = document.getElementById("articleInput").value.trim();
+      const msgDiv = document.getElementById("singleMessage");
+      msgDiv.textContent = "";  // clear previous message
+      if (!query) {
+        msgDiv.textContent = "Please enter a DOI or title.";
+        msgDiv.style.color = "red";
+        return;
+      }
+      // Send request to check_article API
+      try {
+        const res = await fetch("/check_article", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ article: query })
         });
-        window.checkDuplicate = checkDuplicate;
-        window.uploadFile = uploadFile;
-        window.exportDatabase = exportDatabase;
-        window.showStats = showStats;
-    </script>
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          // If server returned an error
+          msgDiv.textContent = "Error: " + (data.error || "Unknown error occurred");
+          msgDiv.style.color = "red";
+        } else {
+          // Successful response
+          if (data.duplicate) {
+            msgDiv.textContent = "This article already exists (duplicate found).";
+            msgDiv.style.color = "orange";
+          } else {
+            msgDiv.textContent = "No duplicate found. Article has been added to the list.";
+            msgDiv.style.color = "green";
+          }
+          // Update stats display after check
+          updateStats();
+        }
+      } catch (err) {
+        console.error("Request failed:", err);
+        msgDiv.textContent = "Error: Could not check the article.";
+        msgDiv.style.color = "red";
+      }
+    });
+
+    // Handle file upload
+    document.getElementById("uploadBtn").addEventListener("click", async () => {
+      const fileInput = document.getElementById("fileInput");
+      const msgDiv = document.getElementById("uploadMessage");
+      msgDiv.textContent = "";  // clear previous message
+      if (!fileInput.files.length) {
+        msgDiv.textContent = "Please select a file to upload.";
+        msgDiv.style.color = "red";
+        return;
+      }
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+      try {
+        const res = await fetch("/upload_file", {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          // Upload error
+          msgDiv.textContent = "Upload Error: " + (data.error || "File processing failed");
+          msgDiv.style.color = "red";
+        } else {
+          // Success - display stats from response
+          msgDiv.textContent = `Success! Processed ${data.total} articles, found ${data.duplicates} duplicate entries.`;
+          msgDiv.style.color = "green";
+          // Update stats section numbers
+          document.getElementById("totalCount").textContent = data.total;
+          document.getElementById("dupCount").textContent = data.duplicates;
+          // Enable the download button now that results are available
+          document.getElementById("downloadBtn").disabled = false;
+        }
+      } catch (err) {
+        console.error("Upload request failed:", err);
+        msgDiv.textContent = "Upload Error: File processing failed.";
+        msgDiv.style.color = "red";
+      }
+    });
+
+    // Handle download button click - trigger file download
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      // Navigate to /export to download the file
+      window.location.href = "/export";
+    });
+
+    // Initial load: fetch current stats (should be zeros at start or persistent from last session if any)
+    updateStats();
+  </script>
 </body>
 </html>
