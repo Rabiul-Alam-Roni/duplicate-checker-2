@@ -1,11 +1,6 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-jinja2==3.1.2
-aiofiles==23.2.1
-sqlalchemy==2.0.23
-pandas==2.1.3
-numpy==1.25.2
-openpyxl==3.1.2
-xlrd==2.0.1
-fuzzywuzzy==0.18.0
-python-Levenshtein==0.21.1
+fastapi>=0.95.0
+uvicorn[standard]>=0.22.0
+pandas>=1.5.0
+openpyxl>=3.0.10       # for Excel file support
+python-multipart>=0.0.5  # for form-data (file uploads)
+jinja2>=3.1.0          # templating (likely included with FastAPI, but ensure present)
