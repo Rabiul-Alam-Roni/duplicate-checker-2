@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Duplicate Checker for AI Bobby Team</title>
-    <link rel="stylesheet" href="/static/styles.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -295,7 +294,7 @@
             border-color: var(--ai-cyan);
         }
 
-        .response.downloaded {
+        .response.duplicate {
             background: rgba(220, 38, 38, 0.1);
             color: var(--downloaded-red);
             border-color: var(--downloaded-red);
@@ -438,11 +437,11 @@
                 <div class="protein-icon">🧬</div>
                 <div>
                     <h1 class="main-title">Duplicate Checker for AI Bobby Team</h1>
-                    <p class="subtitle"> Smart Research Management System</p>
+                    <p class="subtitle">Smart Research Management System</p>
                 </div>
             </div>
             <div class="ai-bobby-logo">
-                AI<br>BOBBY<br>
+                AI<br>BOBBY
             </div>
         </div>
 
@@ -453,7 +452,7 @@
             
             <div class="input-group">
                 <i class="fas fa-link"></i>
-                <input type="text" id="doi" placeholder="Enter DOI (e.g., 10.1016/j.example.2024.01.001)">
+                <input type="text" id="doi" placeholder="Enter DOI (e.g., 10.1016/j.example.2024.01.001)" required>
             </div>
             
             <div class="input-group">
@@ -493,7 +492,7 @@
                 <p>Analyzing article data...</p>
             </div>
             
-            <div class="response" id="response"></div>
+            <div class="response" id="response" style="display: none;"></div>
         </div>
 
         <div class="divider"></div>
@@ -525,7 +524,7 @@
                 <div class="progress-fill" id="progressFill"></div>
             </div>
             
-            <div class="response" id="fileResponse"></div>
+            <div class="response" id="fileResponse" style="display: none;"></div>
         </div>
 
         <div class="divider"></div>
@@ -571,15 +570,8 @@
     </div>
 
     <script>
-        // Global variables to store uploaded DOIs
+        // Global variables
         let uploadedDOIs = new Set();
-        let databaseStats = {
-            total: 0,
-            duplicates: 0,
-            unique: 0,
-            withHardness: 0,
-            withWHC: 0
-        };
 
         // File preview function
         function previewFile() {
@@ -598,7 +590,7 @@
             }
         }
 
-        // Enhanced duplicate checking function
+        // Article checking function
         async function checkDuplicate() {
             const doi = document.getElementById('doi').value.trim();
             const title = document.getElementById('title').value.trim();
@@ -613,43 +605,35 @@
                 return;
             }
 
-            // Check if DOI is in uploaded CSV
-            if (uploadedDOIs.has(doi.toLowerCase())) {
-                showResponse(response, 'downloaded', '<i class="fas fa-download"></i> This article has already been downloaded from your uploaded file');
-                return;
-            }
-
             loading.style.display = 'block';
-            response.innerHTML = '';
+            response.style.display = 'none';
 
             try {
-                const requestData = {
-                    doi: doi,
-                    title: title,
-                    protein: protein,
-                    gel_hardness: hardness,
-                    water_holding_capacity: whc
-                };
+                const formData = new FormData();
+                formData.append('doi', doi);
+                formData.append('title', title);
+                formData.append('protein_name', protein);
+                formData.append('hardness', hardness);
+                formData.append('whc', whc);
 
-                const result = await fetch('/check_duplicate', {
+                const result = await fetch('/check_article', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestData)
+                    body: formData
                 });
 
                 const data = await result.json();
                 
                 if (result.ok) {
-                    if (data.is_duplicate) {
-                        showResponse(response, 'downloaded', `<i class="fas fa-exclamation-circle"></i> Duplicate Found: This article already exists in the database`);
+                    if (data.status === 'duplicate') {
+                        showResponse(response, 'duplicate', `<i class="fas fa-exclamation-circle"></i> ${data.message}`);
+                    } else if (data.status === 'success') {
+                        showResponse(response, 'success', `<i class="fas fa-check-circle"></i> ${data.message}`);
+                        clearForm();
                     } else {
-                        showResponse(response, 'success', `<i class="fas fa-check-circle"></i> Article successfully saved to database`);
-                        updateDatabaseStats();
+                        showResponse(response, 'error', `<i class="fas fa-times-circle"></i> ${data.message}`);
                     }
                 } else {
-                    showResponse(response, 'error', `<i class="fas fa-times-circle"></i> Error: ${data.error || 'Unknown error occurred'}`);
+                    showResponse(response, 'error', `<i class="fas fa-times-circle"></i> Error: ${data.message || 'Unknown error'}`);
                 }
             } catch (error) {
                 showResponse(response, 'error', `<i class="fas fa-exclamation-triangle"></i> Network Error: ${error.message}`);
@@ -658,7 +642,7 @@
             }
         }
 
-        // Enhanced file upload function
+        // File upload function
         async function uploadFile() {
             const fileInput = document.getElementById('fileUpload');
             const progressBar = document.getElementById('progressBar');
@@ -671,19 +655,12 @@
             }
 
             const file = fileInput.files[0];
-            const allowedTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-            
-            if (!allowedTypes.includes(file.type) && !file.name.match(/\.(csv|xlsx|xls)$/i)) {
-                showResponse(fileResponse, 'error', '<i class="fas fa-times-circle"></i> Please upload only CSV or Excel files');
-                return;
-            }
-
             const formData = new FormData();
             formData.append('file', file);
 
             progressBar.style.display = 'block';
             progressFill.style.width = '0%';
-            fileResponse.innerHTML = '';
+            fileResponse.style.display = 'none';
 
             try {
                 // Simulate progress
@@ -694,7 +671,7 @@
                     progressFill.style.width = progress + '%';
                 }, 200);
 
-                const result = await fetch('/upload_csv', {
+                const result = await fetch('/upload_file', {
                     method: 'POST',
                     body: formData
                 });
@@ -705,21 +682,15 @@
                 const data = await result.json();
                 
                 if (result.ok) {
-                    // Store uploaded DOIs for duplicate checking
-                    if (data.uploaded_dois) {
-                        uploadedDOIs = new Set(data.uploaded_dois.map(doi => doi.toLowerCase()));
-                    }
-                    
                     showResponse(fileResponse, 'success', 
-                        `<i class="fas fa-check-circle"></i> Successfully processed ${data.processed_count || 0} articles from ${file.name}`);
-                    updateDatabaseStats();
+                        `<i class="fas fa-check-circle"></i> ${data.message}`);
                 } else {
                     showResponse(fileResponse, 'error', 
-                        `<i class="fas fa-times-circle"></i> Upload Error: ${data.error || 'File processing failed'}`);
+                        `<i class="fas fa-times-circle"></i> Upload Error: ${data.detail || 'File processing failed'}`);
                 }
             } catch (error) {
                 showResponse(fileResponse, 'error', 
-                    `<i class="fas fa-exclamation-triangle"></i> Upload Error: Network connection failed - ${error.message}`);
+                    `<i class="fas fa-exclamation-triangle"></i> Upload Error: ${error.message}`);
             } finally {
                 setTimeout(() => {
                     progressBar.style.display = 'none';
@@ -728,7 +699,7 @@
             }
         }
 
-        // Enhanced export function
+        // Export function
         async function exportDatabase() {
             try {
                 showResponse(document.getElementById('fileResponse'), 'info', 
@@ -755,7 +726,7 @@
                 } else {
                     const errorData = await response.json();
                     showResponse(document.getElementById('fileResponse'), 'error', 
-                        `<i class="fas fa-times-circle"></i> Export failed: ${errorData.error || 'Unknown error'}`);
+                        `<i class="fas fa-times-circle"></i> Export failed: ${errorData.detail || 'Unknown error'}`);
                 }
             } catch (error) {
                 showResponse(document.getElementById('fileResponse'), 'error', 
@@ -763,12 +734,12 @@
             }
         }
 
-        // Enhanced statistics function
+        // Statistics function
         async function showStats() {
             const statsGrid = document.getElementById('statsGrid');
             
             try {
-                const response = await fetch('/get_stats', {
+                const response = await fetch('/api/stats', {
                     method: 'GET',
                 });
 
@@ -776,33 +747,20 @@
                     const stats = await response.json();
                     
                     document.getElementById('totalArticles').textContent = stats.total_articles || 0;
-                    document.getElementById('duplicatesFound').textContent = stats.duplicates_found || 0;
+                    document.getElementById('duplicatesFound').textContent = stats.duplicate_articles || 0;
                     document.getElementById('uniqueArticles').textContent = stats.unique_articles || 0;
-                    document.getElementById('withHardness').textContent = stats.with_hardness || 0;
-                    document.getElementById('withWHC').textContent = stats.with_whc || 0;
+                    document.getElementById('withHardness').textContent = stats.hardness_articles || 0;
+                    document.getElementById('withWHC').textContent = stats.whc_articles || 0;
                     
                     statsGrid.style.display = 'grid';
                 } else {
-                    // Fallback to stored stats if API fails
-                    document.getElementById('totalArticles').textContent = databaseStats.total;
-                    document.getElementById('duplicatesFound').textContent = databaseStats.duplicates;
-                    document.getElementById('uniqueArticles').textContent = databaseStats.unique;
-                    document.getElementById('withHardness').textContent = databaseStats.withHardness;
-                    document.getElementById('withWHC').textContent = databaseStats.withWHC;
-                    
-                    statsGrid.style.display = 'grid';
+                    showResponse(document.getElementById('fileResponse'), 'error', 
+                        '<i class="fas fa-times-circle"></i> Failed to load statistics');
                 }
             } catch (error) {
-                console.error('Stats error:', error);
-                // Show fallback stats
-                statsGrid.style.display = 'grid';
+                showResponse(document.getElementById('fileResponse'), 'error', 
+                    `<i class="fas fa-exclamation-triangle"></i> Stats Error: ${error.message}`);
             }
-        }
-
-        // Update database statistics
-        function updateDatabaseStats() {
-            databaseStats.total++;
-            databaseStats.unique++;
         }
 
         // Helper function to show responses
@@ -821,25 +779,9 @@
             document.getElementById('whc').checked = false;
         }
 
-        // Auto-hide responses after 5 seconds
-        function autoHideResponse(element) {
-            setTimeout(() => {
-                if (element.style.display !== 'none') {
-                    element.style.opacity = '0';
-                    setTimeout(() => {
-                        element.style.display = 'none';
-                        element.style.opacity = '1';
-                    }, 300);
-                }
-            }, 5000);
-        }
-
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            // Load initial statistics
-            showStats();
-            
-            // Add event listeners for better UX
+            // Add event listener for Enter key
             document.getElementById('doi').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     checkDuplicate();
@@ -847,3 +789,5 @@
             });
         });
     </script>
+</body>
+</html>
